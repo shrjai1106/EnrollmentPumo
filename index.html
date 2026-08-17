@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PUMO Course Enrollment Form Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root {
+    --navy: #1a3a63;
+    --gold: #f5b800;
+    --text-dark: #1a2238;
+    --text-grey: #444;
+    --border-grey: #333;
+    --bg: #f4f5f7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text-dark);
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 24px;
+    max-width: 1500px;
+    margin: 0 auto;
+  }
+
+  /* ============ FORM PANEL ============ */
+  .form-panel {
+    background: white;
+    border-radius: 10px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    height: fit-content;
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+  }
+
+  .form-panel h1 {
+    font-size: 18px;
+    color: var(--navy);
+    margin-bottom: 4px;
+    font-weight: 700;
+  }
+
+  .form-panel .subtitle {
+    font-size: 12px;
+    color: var(--text-grey);
+    margin-bottom: 20px;
+  }
+
+  .field-group {
+    margin-bottom: 12px;
+  }
+
+  .field-group label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+  }
+
+  .field-group input,
+  .field-group select,
+  .field-group textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #d6d8dc;
+    border-radius: 5px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--text-dark);
+    background: white;
+  }
+
+  .field-group input:focus,
+  .field-group select:focus,
+  .field-group textarea:focus {
+    outline: none;
+    border-color: var(--navy);
+  }
+
+  .field-group textarea {
+    resize: vertical;
+    min-height: 50px;
+  }
+
+  .section-divider {
+    margin: 18px 0 14px;
+    padding-top: 14px;
+    border-top: 1px solid #eee;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--navy);
+    letter-spacing: 0.5px;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .btn-download {
+    background: var(--navy);
+    color: white;
+    padding: 14px;
+    font-size: 14px;
+    margin-top: 16px;
+    letter-spacing: 0.5px;
+  }
+  .btn-download:hover { background: #12294a; }
+  .btn-download:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* ---- Signature pads ---- */
+  .sig-pad-block {
+    margin-bottom: 16px;
+  }
+  .sig-pad-block .sig-name-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+  }
+  .sig-canvas {
+    width: 100%;
+    height: 110px;
+    border: 1.5px dashed #c3c6cc;
+    border-radius: 6px;
+    background: #fcfcfd;
+    cursor: crosshair;
+    touch-action: none;
+    display: block;
+  }
+  .sig-pad-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 6px;
+  }
+  .sig-clear-btn {
+    background: none;
+    border: none;
+    color: #a33;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 4px;
+  }
+  .sig-clear-btn:hover { text-decoration: underline; }
+  .sig-hint {
+    font-size: 10.5px;
+    color: var(--text-grey);
+  }
+  .sig-date-field {
+    margin-top: 8px;
+  }
+
+  /* ============ PREVIEW PANEL ============ */
+  .preview-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .preview-label {
+    font-size: 12px;
+    color: var(--text-grey);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .pages-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .page-number-label {
+    font-size: 11px;
+    color: var(--text-grey);
+    text-align: center;
+    margin-bottom: -12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* ============ DOCUMENT (A4) ============ */
+  .document {
+    width: 794px;
+    height: 1123px;
+    background: white;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+    position: relative;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    color: var(--text-dark);
+    overflow: hidden;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---- Header ---- */
+  .doc-header {
+    padding: 24px 50px 14px;
+  }
+
+  .header-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-mark {
+    width: 62px;
+    height: 62px;
+    flex-shrink: 0;
+    object-fit: contain;
+  }
+
+  .header-text {
+    flex: 1;
+  }
+
+  .company-name {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+  }
+  .company-name .navy { color: var(--navy); }
+  .company-name .gold { color: var(--gold); }
+
+  .header-sub {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 2px;
+  }
+
+  .header-address {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--navy);
+  }
+
+  .header-regno {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--navy);
+    white-space: nowrap;
+  }
+
+  .header-divider {
+    height: 5px;
+    background: var(--navy);
+    margin-top: 12px;
+  }
+
+  /* ---- Body ---- */
+  .doc-body {
+    flex: 1;
+    padding: 22px 50px 0;
+  }
+
+  .form-title {
+    text-align: center;
+    font-size: 24px;
+    font-weight: 400;
+    letter-spacing: 1px;
+    margin-bottom: 14px;
+    color: var(--text-dark);
+  }
+
+  .form-subtitle {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 20px;
+  }
+
+  .section-heading {
+    font-size: 13.5px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    margin-top: 18px;
+  }
+  .section-heading:first-of-type { margin-top: 0; }
+
+  table.form-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  table.form-table td {
+    border: 1px solid var(--border-grey);
+    padding: 9px 12px;
+    vertical-align: middle;
+  }
+
+  table.form-table td.field-label {
+    width: 38%;
+    font-weight: 400;
+    background: #fafafa;
+  }
+
+  table.form-table td.field-value {
+    color: var(--text-dark);
+    font-weight: 400;
+  }
+
+  table.form-table td.field-value.filled {
+    font-weight: 500;
+  }
+
+  table.form-table td.field-value.placeholder-options {
+    color: #888;
+    font-size: 11.5px;
+  }
+
+  /* Declaration */
+  .declaration-text {
+    font-size: 12px;
+    line-height: 1.6;
+    margin: 12px 0 18px;
+  }
+
+  table.sig-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+  table.sig-table td {
+    border: 1px solid var(--border-grey);
+    padding: 10px 12px;
+    height: 20px;
+  }
+  table.sig-table td.sig-label-col { width: 65%; font-weight: 400; }
+  table.sig-table td.date-label-col { width: 35%; font-weight: 400; }
+  table.sig-table tr.sig-blank td { height: 40px; }
+  table.sig-table tr.sig-blank td img.sig-img {
+    max-height: 46px;
+    max-width: 100%;
+    display: block;
+  }
+
+  /* ---- Footer ---- */
+  .doc-footer {
+    padding: 0 0 0;
+    margin-top: auto;
+  }
+
+  .footer-divider {
+    height: 5px;
+    background: var(--navy);
+    margin-bottom: 10px;
+  }
+
+  .footer-tagline {
+    text-align: center;
+    font-weight: 800;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--navy);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .footer-contact {
+    text-align: center;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-dark);
+    line-height: 1.6;
+    padding-bottom: 18px;
+  }
+
+  /* Responsive scaling on narrow screens */
+  @media (max-width: 1200px) {
+    .app {
+      grid-template-columns: 1fr;
+    }
+    .form-panel {
+      position: static;
+      max-height: none;
+    }
+    .document-scale-wrapper {
+      transform: scale(0.85);
+      transform-origin: top center;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ INPUT FORM ============ -->
+  <aside class="form-panel">
+    <h1>Enrollment Form Generator</h1>
+    <p class="subtitle">Fill in the student's details. The preview updates live.</p>
+
+    <div class="section-divider">Section A: Student Information</div>
+    <div class="field-group">
+      <label>Full Name</label>
+      <input type="text" id="fullName" placeholder="e.g. Anand Kumar" />
+    </div>
+    <div class="field-group">
+      <label>IC / Passport Number</label>
+      <input type="text" id="icPassport" />
+    </div>
+    <div class="field-group">
+      <label>Date of Birth</label>
+      <input type="text" id="dob" placeholder="e.g. 15 March 1998" />
+    </div>
+    <div class="field-group">
+      <label>Gender</label>
+      <select id="gender">
+        <option value="">— Select —</option>
+        <option value="Male">Male</option>
+        <option value="Female">Female</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Nationality</label>
+      <input type="text" id="nationality" />
+    </div>
+    <div class="field-group">
+      <label>Email Address</label>
+      <input type="text" id="email" />
+    </div>
+    <div class="field-group">
+      <label>Contact Number</label>
+      <input type="text" id="contactNo" />
+    </div>
+    <div class="field-group">
+      <label>Address</label>
+      <textarea id="address"></textarea>
+    </div>
+
+    <div class="section-divider">Section B: Course Details</div>
+    <div class="field-group">
+      <label>Course Name</label>
+      <input type="text" id="courseName" />
+    </div>
+    <div class="field-group">
+      <label>Course Level</label>
+      <select id="courseLevel">
+        <option value="">— Select —</option>
+        <option value="Certified">Certified</option>
+        <option value="Professional">Professional</option>
+        <option value="Masters">Masters</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Mode of Training</label>
+      <select id="modeTraining">
+        <option value="">— Select —</option>
+        <option value="Online">Online</option>
+        <option value="Physical">Physical</option>
+        <option value="Hybrid">Hybrid</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Course Start Date</label>
+      <input type="text" id="startDate" placeholder="e.g. 1st July 2026" />
+    </div>
+    <div class="field-group">
+      <label>Course Duration</label>
+      <input type="text" id="duration" placeholder="e.g. 6 Months" />
+    </div>
+    <div class="field-group">
+      <label>Trainer / Instructor</label>
+      <input type="text" id="trainer" />
+    </div>
+
+    <div class="section-divider">Section C: Payment Details</div>
+    <div class="field-group">
+      <label>Currency</label>
+      <select id="currency">
+        <option value="RM">RM — Malaysian Ringgit</option>
+        <option value="INR">INR — Indian Rupee</option>
+        <option value="USD">USD — US Dollar</option>
+        <option value="EUR">EUR — Euro</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Course Fee</label>
+      <input type="number" id="courseFee" min="0" step="0.01" />
+    </div>
+    <div class="field-group">
+      <label>Payment Method</label>
+      <select id="paymentMethod">
+        <option value="">— Select —</option>
+        <option value="Cash">Cash</option>
+        <option value="Bank Transfer">Bank Transfer</option>
+        <option value="Online">Online</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Payment Status</label>
+      <select id="paymentStatus">
+        <option value="">— Select —</option>
+        <option value="Paid">Paid</option>
+        <option value="Partially Paid">Partially Paid</option>
+        <option value="Pending">Pending</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <label>Receipt / Reference No.</label>
+      <input type="text" id="receiptNo" />
+    </div>
+
+    <div class="section-divider">Section D: Signatures</div>
+
+    <div class="sig-pad-block">
+      <div class="sig-name-label">Student Signature</div>
+      <canvas class="sig-canvas" id="studentSigCanvas"></canvas>
+      <div class="sig-pad-actions">
+        <span class="sig-hint">Draw with mouse or finger</span>
+        <button type="button" class="sig-clear-btn" onclick="clearSig('student')">Clear</button>
+      </div>
+      <div class="field-group sig-date-field">
+        <label>Date</label>
+        <input type="text" id="studentSigDate" placeholder="e.g. 12th May 2026" />
+      </div>
+    </div>
+
+    <div class="sig-pad-block">
+      <div class="sig-name-label">Authorized Representative (PUMO)</div>
+      <canvas class="sig-canvas" id="repSigCanvas"></canvas>
+      <div class="sig-pad-actions">
+        <span class="sig-hint">Draw with mouse or finger</span>
+        <button type="button" class="sig-clear-btn" onclick="clearSig('rep')">Clear</button>
+      </div>
+      <div class="field-group sig-date-field">
+        <label>Date</label>
+        <input type="text" id="repSigDate" placeholder="e.g. 12th May 2026" />
+      </div>
+    </div>
+
+    <button class="btn btn-download" id="downloadBtn" onclick="downloadPDF()">
+      ⬇ DOWNLOAD AS PDF
+    </button>
+  </aside>
+
+  <!-- ============ PREVIEW ============ -->
+  <main class="preview-panel">
+    <div class="preview-label">Live Preview — 2 Pages</div>
+
+    <div class="pages-wrapper">
+
+      <!-- ============ PAGE 1 ============ -->
+      <div>
+        <div class="page-number-label">Page 1</div>
+        <div class="document-scale-wrapper">
+        <div class="document" id="page1">
+          <div class="doc-header" id="headerTemplate1"></div>
+
+          <div class="doc-body">
+            <div class="form-title">COURSE ENROLLMENT FORM</div>
+            <div class="form-subtitle">PUMO Technovation</div>
+
+            <div class="section-heading">Section A: Student Information</div>
+            <table class="form-table">
+              <tr><td class="field-label">Full Name</td><td class="field-value filled" id="pv_fullName">&nbsp;</td></tr>
+              <tr><td class="field-label">IC / Passport Number</td><td class="field-value filled" id="pv_icPassport">&nbsp;</td></tr>
+              <tr><td class="field-label">Date of Birth</td><td class="field-value filled" id="pv_dob">&nbsp;</td></tr>
+              <tr><td class="field-label">Gender</td><td class="field-value filled" id="pv_gender">&nbsp;</td></tr>
+              <tr><td class="field-label">Nationality</td><td class="field-value filled" id="pv_nationality">&nbsp;</td></tr>
+              <tr><td class="field-label">Email Address</td><td class="field-value filled" id="pv_email">&nbsp;</td></tr>
+              <tr><td class="field-label">Contact Number</td><td class="field-value filled" id="pv_contactNo">&nbsp;</td></tr>
+              <tr><td class="field-label">Address</td><td class="field-value filled" id="pv_address">&nbsp;</td></tr>
+            </table>
+
+            <div class="section-heading">Section B: Course Details</div>
+            <table class="form-table">
+              <tr><td class="field-label">Course Name</td><td class="field-value filled" id="pv_courseName">&nbsp;</td></tr>
+              <tr><td class="field-label">Course Level</td><td class="field-value placeholder-options">Certified / Professional / Masters</td></tr>
+              <tr><td class="field-label">Mode of Training</td><td class="field-value placeholder-options">Online / Physical / Hybrid</td></tr>
+              <tr><td class="field-label">Course Start Date</td><td class="field-value filled" id="pv_startDate">&nbsp;</td></tr>
+              <tr><td class="field-label">Course Duration</td><td class="field-value filled" id="pv_duration">&nbsp;</td></tr>
+              <tr><td class="field-label">Trainer / Instructor</td><td class="field-value filled" id="pv_trainer">&nbsp;</td></tr>
+            </table>
+          </div>
+
+          <div class="doc-footer" id="footerTemplate1"></div>
+        </div>
+        </div>
+      </div>
+
+      <!-- ============ PAGE 2 ============ -->
+      <div>
+        <div class="page-number-label">Page 2</div>
+        <div class="document-scale-wrapper">
+        <div class="document" id="page2">
+          <div class="doc-header" id="headerTemplate2"></div>
+
+          <div class="doc-body">
+            <div class="section-heading" style="margin-top:8px;">Section C: Payment Details</div>
+            <table class="form-table">
+              <tr><td class="field-label" id="pv_feeLabel">Course Fee (RM)</td><td class="field-value filled" id="pv_courseFee">&nbsp;</td></tr>
+              <tr><td class="field-label">Payment Method</td><td class="field-value placeholder-options">Cash / Bank Transfer / Online</td></tr>
+              <tr><td class="field-label">Payment Status</td><td class="field-value placeholder-options">Paid / Partially Paid / Pending</td></tr>
+              <tr><td class="field-label">Receipt / Reference No.</td><td class="field-value filled" id="pv_receiptNo">&nbsp;</td></tr>
+            </table>
+
+            <div class="section-heading">Section D: Declaration</div>
+            <div class="declaration-text">
+              I hereby confirm that the information provided above is true and correct. I agree to abide by the rules, regulations,
+              and policies of PUMO Technovation. I understand that course fees once paid are non-refundable unless stated
+              otherwise.
+            </div>
+
+            <table class="sig-table">
+              <tr><td class="sig-label-col">Student Signature</td><td class="date-label-col">Date</td></tr>
+              <tr class="sig-blank"><td id="pv_studentSigCell">&nbsp;</td><td id="pv_studentSigDate">&nbsp;</td></tr>
+              <tr><td class="sig-label-col">Authorized Representative (PUMO Technovation)</td><td class="date-label-col">Date</td></tr>
+              <tr class="sig-blank"><td id="pv_repSigCell">&nbsp;</td><td id="pv_repSigDate">&nbsp;</td></tr>
+            </table>
+          </div>
+
+          <div class="doc-footer" id="footerTemplate2"></div>
+        </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  const LOGO_B64 = "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";
+
+  // ---------- Header / Footer templates (shared across both pages) ----------
+  const headerHTML = `
+    <div class="header-row">
+      <img class="logo-mark" src="data:image/jpeg;base64,${LOGO_B64}" alt="PUMO Logo" />
+      <div class="header-text">
+        <div class="company-name"><span class="navy">PUMO TECHN</span><span class="gold">O</span><span class="navy">VATION SDN.BHD.</span></div>
+        <div class="header-sub">
+          <div class="header-address">No. 76, 1st Floor, Jln Tun Sambanthan, Brickfields, 50470, Kuala Lumpur</div>
+          <div class="header-regno">(1643591-T)</div>
+        </div>
+      </div>
+    </div>
+    <div class="header-divider"></div>
+  `;
+
+  const footerHTML = `
+    <div class="footer-divider"></div>
+    <div class="footer-tagline">ADVANCED AI INTEGRATED TECH CAMPUS</div>
+    <div class="footer-contact">
+      No. 76, 1st Floor, JLN Tun Sambanthan, Brickfields, 50470, Kuala Lumpur<br/>
+      www.pumotechnovation.com | Ph.no: +60 16-259 2727
+    </div>
+  `;
+
+  document.getElementById('headerTemplate1').innerHTML = headerHTML;
+  document.getElementById('headerTemplate2').innerHTML = headerHTML;
+  document.getElementById('footerTemplate1').innerHTML = footerHTML;
+  document.getElementById('footerTemplate2').innerHTML = footerHTML;
+
+  // ---------- Currency config ----------
+  const currencyConfig = {
+    RM:  { symbol: 'RM',  locale: 'en-MY' },
+    INR: { symbol: '₹',   locale: 'en-IN' },
+    USD: { symbol: '$',   locale: 'en-US' },
+    EUR: { symbol: '€',   locale: 'de-DE' }
+  };
+
+  function getCurrency() {
+    const code = document.getElementById('currency').value;
+    return currencyConfig[code] || currencyConfig.RM;
+  }
+
+  function fmtMoney(n) {
+    const cur = getCurrency();
+    if (!n && n !== 0) return '';
+    const num = (Number(n) || 0).toLocaleString(cur.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return `${cur.symbol} ${num}`;
+  }
+
+  // ---------- Render preview ----------
+  function renderSigCell(cellId, dataUrl) {
+    const cell = document.getElementById(cellId);
+    if (dataUrl) {
+      cell.innerHTML = `<img class="sig-img" src="${dataUrl}" alt="signature" />`;
+    } else {
+      cell.innerHTML = '&nbsp;';
+    }
+  }
+
+  function val(id) {
+    const v = document.getElementById(id).value;
+    return v ? v : '\u00A0';
+  }
+
+  function renderPreview() {
+    document.getElementById('pv_fullName').textContent = val('fullName');
+    document.getElementById('pv_icPassport').textContent = val('icPassport');
+    document.getElementById('pv_dob').textContent = val('dob');
+    document.getElementById('pv_gender').textContent = document.getElementById('gender').value || '\u00A0';
+    document.getElementById('pv_nationality').textContent = val('nationality');
+    document.getElementById('pv_email').textContent = val('email');
+    document.getElementById('pv_contactNo').textContent = val('contactNo');
+    document.getElementById('pv_address').textContent = val('address');
+
+    document.getElementById('pv_courseName').textContent = val('courseName');
+    document.getElementById('pv_startDate').textContent = val('startDate');
+    document.getElementById('pv_duration').textContent = val('duration');
+    document.getElementById('pv_trainer').textContent = val('trainer');
+
+    const cur = getCurrency();
+    document.getElementById('pv_feeLabel').textContent = `Course Fee (${cur.symbol})`;
+    const feeVal = document.getElementById('courseFee').value;
+    document.getElementById('pv_courseFee').textContent = feeVal ? fmtMoney(feeVal) : '\u00A0';
+    document.getElementById('pv_receiptNo').textContent = val('receiptNo');
+
+    // Signatures
+    renderSigCell('pv_studentSigCell', getSigDataUrl('student'));
+    renderSigCell('pv_repSigCell', getSigDataUrl('rep'));
+    document.getElementById('pv_studentSigDate').textContent = val('studentSigDate');
+    document.getElementById('pv_repSigDate').textContent = val('repSigDate');
+
+    // Course Level selection highlight
+    updateOptionLine('courseLevel', 'Certified / Professional / Masters', ['Certified','Professional','Masters']);
+    updateOptionLine('modeTraining', 'Online / Physical / Hybrid', ['Online','Physical','Hybrid']);
+    updateOptionLine('paymentMethod', 'Cash / Bank Transfer / Online', ['Cash','Bank Transfer','Online']);
+    updateOptionLine('paymentStatus', 'Paid / Partially Paid / Pending', ['Paid','Partially Paid','Pending']);
+  }
+
+  function updateOptionLine(fieldId, defaultText, options) {
+    const selected = document.getElementById(fieldId).value;
+    // Find the corresponding preview cell by scanning table rows (matched by default text initially rendered)
+    const cells = document.querySelectorAll('.field-value.placeholder-options');
+    cells.forEach(cell => {
+      const original = options.join(' / ');
+      if (cell.getAttribute('data-options') === fieldId || cell.textContent.trim() === defaultText || cell.getAttribute('data-bound') === fieldId) {
+        cell.setAttribute('data-bound', fieldId);
+        if (selected) {
+          cell.innerHTML = options.map(o => o === selected ? `<strong>${o}</strong>` : o).join(' / ');
+        } else {
+          cell.textContent = defaultText;
+        }
+      }
+    });
+  }
+
+  // Bind data-bound attributes once so updateOptionLine can find the right cell reliably after first render
+  function initOptionBindings() {
+    const rows = document.querySelectorAll('.field-value.placeholder-options');
+    const mapping = [
+      { text: 'Certified / Professional / Masters', field: 'courseLevel' },
+      { text: 'Online / Physical / Hybrid', field: 'modeTraining' },
+      { text: 'Cash / Bank Transfer / Online', field: 'paymentMethod' },
+      { text: 'Paid / Partially Paid / Pending', field: 'paymentStatus' }
+    ];
+    rows.forEach(cell => {
+      const m = mapping.find(m => m.text === cell.textContent.trim());
+      if (m) cell.setAttribute('data-bound', m.field);
+    });
+  }
+
+  // ---------- Signature pads ----------
+  const sigPads = {}; // { student: {canvas, ctx, hasDrawn}, rep: {...} }
+
+  function setupSigPad(key, canvasId) {
+    const canvas = document.getElementById(canvasId);
+    // Match internal resolution to displayed size (with device pixel ratio for crisp lines)
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      // Preserve existing drawing if any
+      const prevData = sigPads[key] && sigPads[key].hasDrawn ? canvas.toDataURL() : null;
+      canvas.width = rect.width * ratio;
+      canvas.height = rect.height * ratio;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(ratio, ratio);
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#1a2238';
+      sigPads[key].ctx = ctx;
+      if (prevData) {
+        const img = new Image();
+        img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
+        img.src = prevData;
+      }
+    }
+
+    sigPads[key] = { canvas, ctx: null, hasDrawn: false, drawing: false, lastX: 0, lastY: 0 };
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: clientX - rect.left, y: clientY - rect.top };
+    }
+
+    function start(e) {
+      e.preventDefault();
+      const pos = getPos(e);
+      sigPads[key].drawing = true;
+      sigPads[key].hasDrawn = true;
+      sigPads[key].lastX = pos.x;
+      sigPads[key].lastY = pos.y;
+    }
+    function move(e) {
+      if (!sigPads[key].drawing) return;
+      e.preventDefault();
+      const pos = getPos(e);
+      const ctx = sigPads[key].ctx;
+      ctx.beginPath();
+      ctx.moveTo(sigPads[key].lastX, sigPads[key].lastY);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      sigPads[key].lastX = pos.x;
+      sigPads[key].lastY = pos.y;
+    }
+    function end() {
+      if (!sigPads[key].drawing) return;
+      sigPads[key].drawing = false;
+      renderPreview();
+    }
+
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchmove', move, { passive: false });
+    canvas.addEventListener('touchend', end);
+  }
+
+  function clearSig(key) {
+    const pad = sigPads[key];
+    if (!pad) return;
+    const rect = pad.canvas.getBoundingClientRect();
+    pad.ctx.clearRect(0, 0, rect.width, rect.height);
+    pad.hasDrawn = false;
+    renderPreview();
+  }
+
+  function getSigDataUrl(key) {
+    const pad = sigPads[key];
+    if (!pad || !pad.hasDrawn) return null;
+    return pad.canvas.toDataURL('image/png');
+  }
+
+  setupSigPad('student', 'studentSigCanvas');
+  setupSigPad('rep', 'repSigCanvas');
+
+
+  const allFieldIds = ['fullName','icPassport','dob','gender','nationality','email','contactNo','address',
+    'courseName','courseLevel','modeTraining','startDate','duration','trainer',
+    'currency','courseFee','paymentMethod','paymentStatus','receiptNo',
+    'studentSigDate','repSigDate'];
+
+  allFieldIds.forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', renderPreview);
+    el.addEventListener('change', renderPreview);
+  });
+
+  // ---------- PDF download (2 pages) ----------
+  async function downloadPDF() {
+    const btn = document.getElementById('downloadBtn');
+    btn.disabled = true;
+    btn.textContent = 'Generating PDF...';
+
+    const page1 = document.getElementById('page1');
+    const page2 = document.getElementById('page2');
+    const wrappers = document.querySelectorAll('.document-scale-wrapper');
+    const savedTransforms = [];
+    wrappers.forEach(w => { savedTransforms.push(w.style.transform); w.style.transform = 'none'; });
+
+    const nameForFile = (document.getElementById('fullName').value || 'Enrollment_Form').replace(/[^a-z0-9]+/gi, '_');
+    const filename = `Enrollment_Form_${nameForFile}.pdf`;
+
+    try {
+      await new Promise(r => setTimeout(r, 50));
+
+      const html2canvasFn = window.html2canvas;
+      const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+      if (!html2canvasFn) throw new Error('html2canvas library not loaded. Check your internet connection and refresh.');
+      if (!jsPDFCtor) throw new Error('jsPDF library not loaded. Check your internet connection and refresh.');
+
+      const captureOpts = {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        width: 794,
+        height: 1123,
+        windowWidth: 794,
+        windowHeight: 1123,
+        logging: false
+      };
+
+      const canvas1 = await html2canvasFn(page1, captureOpts);
+      const canvas2 = await html2canvasFn(page2, captureOpts);
+
+      const pdf = new jsPDFCtor({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+
+      const img1 = canvas1.toDataURL('image/jpeg', 0.98);
+      pdf.addImage(img1, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+
+      pdf.addPage();
+      const img2 = canvas2.toDataURL('image/jpeg', 0.98);
+      pdf.addImage(img2, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+
+      pdf.save(filename);
+
+    } catch (err) {
+      console.error(err);
+      alert('Could not generate PDF: ' + err.message);
+    } finally {
+      wrappers.forEach((w, i) => { w.style.transform = savedTransforms[i]; });
+      btn.disabled = false;
+      btn.textContent = '⬇ DOWNLOAD AS PDF';
+    }
+  }
+
+  // ---------- Init ----------
+  initOptionBindings();
+  renderPreview();
+</script>
+</body>
+</html>
